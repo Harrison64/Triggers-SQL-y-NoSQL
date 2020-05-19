@@ -1,0 +1,48 @@
+show dbs
+
+use Empresa
+db 
+cls
+
+db.createUser({
+  user: "MongoDB",
+  pwd: "12345",
+  roles: ['readWrite', 'dbAdmin']
+});
+
+db.empresa.save({ "departameto": {
+"dep_id": "",
+"dep_nombre": "",
+"dep_tel": "",
+"dep_ubicacion": "",
+"dep_modulo": ""
+} 
+} );
+
+db.empresa.save({ "trabajador": {
+"tra_id ": "",
+"tra_nombre ": "",
+"tra_telefono ": "",
+"tra_cargo ": "",
+"tra_salario": "",
+"tra_dep_id ": "",
+}
+} );
+
+db.empresa.save({ "cliente": {
+"cl_cod": "",
+"cl_nom":"",
+"cl_telefono":""
+}
+} );
+
+db.empresa.save({ "venta": {
+"v_cod": "",
+"v_nombre": "",
+"v_fecha": "",
+"v_descripcion": "",
+"v_costo": "",
+"v_tra_id": ""
+} 
+} );
+

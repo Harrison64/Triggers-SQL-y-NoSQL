@@ -1,0 +1,276 @@
+Create Table departamento(
+	dep_id INT NOT NULL PRIMARY KEY,
+	dep_nombre VARCHAR(20) NOT NULL,
+	dep_tel INT NOT NULL,
+	dep_ubicacion VARCHAR(30) NOT NULL,
+	dep_modulo INT NOT NULL UNIQUE
+);
+
+Create Table trabajador(
+	tra_id INT NOT NULL PRIMARY KEY,
+	tra_nombre VARCHAR(50) NOT NULL ,
+	tra_telefono INT NOT NULL,
+	tra_cargo VARCHAR(20) NOT NULL,
+	tra_salario INT NOT NULL,
+	tra_dep_id INT,
+	foreign key (tra_dep_id) references departamento (dep_id)
+);
+
+Create Table cliente(
+	cl_doc INT NOT NULL PRIMARY KEY,
+	cl_nombre VARCHAR(50) NOT NULL ,
+	cl_telefono INT NOT NULL
+);
+Create Table venta(
+	v_cod INT NOT NULL PRIMARY KEY,
+	v_nombre VARCHAR(20) NOT NULL,
+	v_fecha DATE NOT NULL,
+	v_descripcion VARCHAR(100) NOT NULL,
+	v_costo INT NOT NULL,
+	v_tra_id INT,
+	foreign key (v_tra_id) references trabajador (tra_id)
+);
+Create Table cliente_venta(
+	cv_vcod INT NOT NULL,
+	cv_cldoc INT NOT NULL,
+	primary key (cv_vcod, cv_cldoc),
+	foreign key (cv_vcod) references venta (v_cod),
+	foreign key (cv_cldoc) references cliente (cl_doc)
+);
+--------------------------------------------AUDITORIA---------------------------------------------------------------------------------
+create table AuditoriaSQL (
+	NroTran serial not null,
+	Nomtab varchar (20) not null,
+	Operac varchar(6) not null,
+	Fec_hr timestamp without time zone not null,
+	Usuario varchar (30),
+	Val_ant text,
+	Val_nuevo text,
+	primary key (NroTran)
+);
+---INSERTAR---
+create or replace function func_audit() returns trigger as 
+$$ 
+begin
+ 	if(TG_OP = 'INSERT') then insert into AuditoriaSQL( Nomtab, Operac, Fec_hr, Usuario, Val_ant, Val_nuevo)
+	values( TG_TABLE_NAME, TG_OP, now(), user, null, new );
+	return new;
+	end if;
+	if(TG_OP = 'DELETE') then insert into AuditoriaSQL( Nomtab, Operac, Fec_hr, Usuario, Val_ant, Val_nuevo)
+	values( TG_TABLE_NAME, TG_OP, now(), user, old, null );
+	return old;
+	end if;
+	if(TG_OP = 'UPDATE') then insert into AuditoriaSQL( Nomtab, Operac, Fec_hr, Usuario, Val_ant, Val_nuevo)
+	values( TG_TABLE_NAME, TG_OP, now(), user, old, new );
+	return new;
+	end if;
+	return null;
+end;
+$$ 
+language 'plpgsql';
+
+----------Triggers para las tablas----------------
+create trigger AuditoriaSQL 
+after insert or update or delete on departamento for each row execute procedure func_audit();
+
+create trigger AuditoriaSQL 
+after insert or update or delete on trabajador for each row execute procedure func_audit();
+
+create trigger AuditoriaSQL 
+after insert or update or delete on cliente for each row execute procedure func_audit();
+
+create trigger AuditoriaSQL 
+after insert or update or delete on venta for each row execute procedure func_audit();
+
+create trigger AuditoriaSQL 
+after insert or update or delete on cliente_venta for each row execute procedure func_audit();
+
+select * FROM AuditoriaSQL;
+--------------------------------------------------------------------------------------------
+INSERT INTO departamento VALUES(101,'Juegos Electronicos',6581001,'1er Piso',6);
+INSERT INTO departamento VALUES(102,'Suscribciones',6581002,'1er Piso',7);
+INSERT INTO departamento VALUES(103,'Computadoras',6581003,'1er Piso',1);
+
+INSERT INTO trabajador VALUES(1110,'Juan Tellez',35632541,'Analista',800000,101);
+INSERT INTO trabajador VALUES(1111,'Alberto Rojas',36482378,'Asesor',800000,101);
+INSERT INTO trabajador VALUES(1210,'Stella Sanchez',32379168,'Gerente',800000,102);
+INSERT INTO trabajador VALUES(1211,'Cristian Garcia',35636347,'Asesor',800000,102);
+INSERT INTO trabajador VALUES(1310,'Evangelina Cruz',34481311,'Ingeniero',800000,103);
+INSERT INTO trabajador VALUES(1311,'Pastor Sanchez',35726493,'Asesor',800000,103);
+
+INSERT INTO cliente VALUES(3265,'Pepito Perez',38941238);
+INSERT INTO cliente VALUES(9518,'Jhon Pulido',34569806);
+INSERT INTO cliente VALUES(5614,'Alejandro Moreno',33006023);
+INSERT INTO cliente VALUES(8723,'Paola Ramirez',31112546);
+
+INSERT INTO venta VALUES(1001,'Wow','01/05/2020','Juego MMOPRG',45000,1111);
+INSERT INTO venta VALUES(1002,'PC','01/05/2020','Computador Acer E14-15',1350000,1211);
+INSERT INTO venta VALUES(1003,'Netflix','01/05/2020','Suscripcion',26500,1111);
+INSERT INTO venta VALUES(1005,'Lol','01/05/2020','Recarga Juego MOBA',500900,1311);
+
+INSERT INTO cliente_venta VALUES(1001,3265);
+INSERT INTO cliente_venta VALUES(1002,8723);
+INSERT INTO cliente_venta VALUES(1003,3265);
+INSERT INTO cliente_venta VALUES(1004,5614);
+
+UPDATE venta SET v_nombre='World of Warcraft' WHERE v_nombre='Wow';
+UPDATE departamento SET dep_modulo=10 WHERE dep_modulo<10 and dep_id=101;
+UPDATE trabajador SET tra_salario=10000 WHERE tra_id=1110;
+
+DELETE FROM cliente where cl_doc=(9518);
+
+DELETE FROM cliente_venta where cv_vcod=1001;
+DELETE FROM venta where v_cod=1005;
+
+DELETE FROM cliente_venta;
+DELETE FROM venta;
+DELETE FROM cliente;
+DELETE FROM trabajador;
+DELETE FROM departamento;
+
+--------------------------------------------FIN AUDITORIAS---------------------------------------------------------------------------
+
+----------------------------------------TRIGGERS---------------------------------------------------------
+-- Triggers Pre, Departamento --
+create or replace function insertdepart() returns trigger as
+$$
+	begin
+		if (new.dep_id is null) then
+		     raise exception 'Debe insertar el Id del Departamento';
+		end if;	
+		if (exists(select * from departamento where dep_id = new.dep_id)) then
+		     raise exception 'El numero del id del departamento ya existe';
+		end if;
+		if (new.dep_modulo is null) then
+		     raise exception 'Debe insertar el N° del Modulo';
+		end if;	
+		if (exists(select * from departamento where dep_modulo = new.dep_modulo)) then
+		     raise exception 'El numero del id del modulo ya se encuentra ocupado';
+		end if;
+	return new;
+	end;
+$$
+language 'plpgsql';
+
+create trigger insertdepart before insert on departamento for each row execute procedure insertdepart();
+-- Triggers Pre, Departamento --
+
+create or replace function updatedepart() returns trigger as
+$$
+	begin
+		if ((select count (*) from departamento where dep_id = old.dep_id)=0) then
+		     raise exception 'El numero del id del departamento no existe';
+		end if;
+		if (new.dep_modulo is null) then
+		     raise exception 'Debe insertar el N° del Modulo a Actualizar';
+		end if;	
+	return new;
+	end;
+$$
+language 'plpgsql';
+
+create trigger udpdepart before update on departamento for each row execute procedure updatedepart();
+
+-- Triggers Pre, Trabajador --
+create or replace function inserttrabajador() returns trigger as
+$$
+	begin
+		if (new.tra_id is null) then
+		     raise exception 'Debe ingresar el Id del Trabajador';
+		end if;
+		if ((new.tra_telefono <= 30000000) or (new.tra_telefono >= 40000000) ) then
+		     raise exception 'El numero telefonico debe empezar en 3 y tener 8 digitos';
+		end if;	
+		if ((select count (*) from trabajador where tra_id=new.tra_id)>0) then
+		     raise exception 'El id del trabajador ya existe';
+		end if;
+	return new;
+	end;
+$$
+language 'plpgsql';
+
+create trigger ins_tra before insert on trabajador for each row execute procedure inserttrabajador();
+
+-- Triggers Pre, Venta --
+create or replace function insertventa() returns trigger as
+$$
+	begin
+		if (new.v_cod is null) then
+		     raise exception 'Debe Digitar el codigo del producto';
+		end if;
+		if (new.v_cod < 1000) then
+		     raise exception 'El codigo debe ser mayor a 1000';
+		end if;
+		if (exists(select * from venta where v_cod = new.v_cod)) then
+		     raise exception 'El codigo ya existe';
+		end if;	
+	return new;
+	end;
+$$
+language 'plpgsql';
+
+create trigger ins_ven before insert on venta for each row execute procedure insertventa();
+
+-- Triggers Post, Departamento --
+create or replace function upddepart() returns trigger as
+$$
+	begin
+		if (new.dep_modulo != old.dep_modulo) then
+		     raise exception 'El cambio esta correcto';
+		end if;
+		if (new.dep_modulo = old.dep_modulo) then
+		     raise exception 'El Modulo sigue en el mismo lugar, transaccion inecesaria ';
+		end if;
+	return new;
+	end;
+$$
+language 'plpgsql';
+
+create trigger upd_depart after update on departamento for each row execute procedure upddepart();
+
+-- Triggers Post, Trabajador --
+
+create or replace function updatetrabajador() returns trigger as
+$$
+	begin
+		if (new.tra_salario < old.tra_salario) then
+		     raise exception 'El trabajador obtiene un menor salario al anterior';
+		end if;
+		if (new.tra_salario > old.tra_salario) then
+		     raise exception 'El trabajador obtuvo un considerable ascenso';
+		end if;
+	return new;
+	end;
+$$
+language 'plpgsql';
+
+create trigger upd_tra after update on trabajador for each row execute procedure updatetrabajador();
+
+-- Triggers Post, venta --
+
+create or replace function dropventa() returns trigger as
+$$
+	begin
+		if ((select count (*) from venta where v_cod= old.v_cod)=0) then
+		     raise exception 'Se elimino correctamente la venta';
+		end if;
+	return new;
+	end;
+$$
+language 'plpgsql';
+			
+create trigger drop_ven after delete on venta for each row execute procedure dropventa();
+			
+-- Triggers Post,  CALCULO ARITMETICO --
+CREATE OR REPLACE FUNCTION updtevalvent()RETURNS trigger AS
+$$
+    begin 
+        IF(TG_OP='INSERT')then
+        	update venta set v_costo=(v_costo-49900) where v_costo>500000;
+        end if;
+		return new;
+	end;
+$$
+LANGUAGE 'plpgsql';
+
+create trigger val_venta  after insert or update on venta for each row execute procedure updtevalvent();
